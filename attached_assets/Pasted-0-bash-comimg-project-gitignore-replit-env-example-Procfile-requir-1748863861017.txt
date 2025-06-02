@@ -1,0 +1,709 @@
+0. 프로젝트 트리
+bash
+복사
+편집
+comimg-project/
+│  .gitignore
+│  .replit
+│  .env.example
+│  Procfile
+│  requirements.txt
+│  runtime.txt
+│  app.py
+│  config.py
+│  db.py
+│
+├─blueprints/
+│  ├─auth/
+│  │   __init__.py
+│  │   routes.py
+│  │   forms.py
+│  ├─products/
+│  │   __init__.py
+│  │   routes.py
+│  │   forms.py
+│  ├─dashboard/
+│  │   __init__.py
+│  │   routes.py
+│  └─notifications/
+│      __init__.py
+│      routes.py
+│
+├─utils/
+│  crawler.py
+│  ocr_processor.py
+│  discount_engine.py
+│  email_notifier.py
+│
+├─static/
+│  ├─css/styles.css
+│  └─js/main.js
+└─templates/
+   ├─base.html
+   ├─index.html
+   ├─auth/
+   │   login.html
+   │   register.html
+   ├─products/
+   │   search.html
+   │   result.html
+   ├─dashboard/history.html
+   └─notifications/settings.html
+1. 루트 설정 파일들
+.gitignore
+gitignore
+복사
+편집
+__pycache__/
+*.pyc
+.env
+env/
+.idea/
+.vscode/
+.replit
+ini
+복사
+편집
+run = "python3 app.py"
+language = "python"
+.env.example
+env
+복사
+편집
+# 복사해서 .env 로 이름 변경 후 실제 값 입력
+SECRET_KEY=change_this_secret
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster0.mongodb.net/comimg?retryWrites=true&w=majority
+
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=youremail@example.com
+MAIL_PASSWORD=your_email_password
+MAIL_DEFAULT_SENDER=no-reply@comimg.com
+Procfile
+Procfile
+복사
+편집
+web: gunicorn app:app
+requirements.txt
+txt
+복사
+편집
+Flask==2.2.5
+python-dotenv==1.0.0
+flask-pymongo==2.3.0
+pymongo==4.7.0
+Flask-Login==0.6.3
+Flask-Mail==0.9.1
+requests==2.31.0
+beautifulsoup4==4.12.2
+pytesseract==0.3.10
+pillow==10.0.0
+selenium==4.10.0
+gunicorn==20.1.0
+Jinja2==3.1.2
+itsdangerous==2.1.2
+runtime.txt
+txt
+복사
+편집
+python-3.9.13
+2. 핵심 모듈
+config.py
+python
+복사
+편집
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # .env 로드
+
+class Config:
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret")
+    MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/comimg")
+    # Flask-Login
+    SESSION_COOKIE_SECURE = False  # Replit https 아님
+    # Mail
+    MAIL_SERVER   = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT     = int(os.getenv("MAIL_PORT", 587))
+    MAIL_USE_TLS  = True
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
+db.py
+python
+복사
+편집
+from flask_pymongo import PyMongo
+
+mongo = PyMongo()
+
+def init_db(app):
+    mongo.init_app(app, uri=app.config["MONGODB_URI"])
+app.py
+python
+복사
+편집
+from flask import Flask, render_template
+from flask_login import LoginManager
+from flask_mail import Mail
+from config import Config
+from db import init_db, mongo
+from datetime import datetime
+
+# 블루프린트 import
+from blueprints.auth import auth_bp
+from blueprints.products import products_bp
+from blueprints.dashboard import dashboard_bp
+from blueprints.notifications import notifications_bp
+
+mail = Mail()
+login_manager = LoginManager()
+login_manager.login_view = "auth.login"
+
+def create_app():
+    app = Flask(__name__, static_url_path="/static")
+    app.config.from_object(Config)
+
+    # 확장 초기화
+    init_db(app)
+    mail.init_app(app)
+    login_manager.init_app(app)
+
+    # 블루프린트 등록
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(products_bp, url_prefix="/products")
+    app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+    app.register_blueprint(notifications_bp, url_prefix="/notifications")
+
+    # 루트
+    @app.route("/")
+    def index():
+        return render_template("index.html", now=datetime.utcnow())
+
+    return app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=3000, debug=True)
+3. Blueprints
+모든 블루프린트 폴더에 __init__.py 를 두어 서브모듈로 만듭니다.
+
+blueprints/auth/__init__.py
+python
+복사
+편집
+from flask import Blueprint
+auth_bp = Blueprint("auth", __name__, template_folder="templates")
+
+from . import routes  # noqa
+blueprints/auth/routes.py
+python
+복사
+편집
+from flask import render_template, request, redirect, url_for, flash
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import login_user, logout_user, login_required, UserMixin
+from bson.objectid import ObjectId
+from datetime import datetime
+from db import mongo
+from . import auth_bp
+
+class MongoUser(UserMixin):
+    def __init__(self, doc):
+        self.id = str(doc["_id"])
+        self.username = doc["username"]
+        self.email = doc["email"]
+
+def user_loader(user_id):
+    doc = mongo.db.users.find_one({"_id": ObjectId(user_id)})
+    return MongoUser(doc) if doc else None
+
+from app import login_manager
+login_manager.user_loader(user_loader)
+
+@auth_bp.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email    = request.form["email"].strip()
+        password = request.form["password"]
+        user_doc = mongo.db.users.find_one({"email": email})
+        if user_doc and check_password_hash(user_doc["password_hash"], password):
+            login_user(MongoUser(user_doc))
+            return redirect(url_for("dashboard.home"))
+        flash("이메일 또는 비밀번호가 올바르지 않습니다.")
+    return render_template("auth/login.html")
+
+@auth_bp.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form["username"]
+        email    = request.form["email"]
+        pw_hash  = generate_password_hash(request.form["password"])
+        if mongo.db.users.find_one({"email": email}):
+            flash("이미 가입된 이메일입니다.")
+            return redirect(url_for("auth.register"))
+        doc = {
+            "username": username,
+            "email": email,
+            "password_hash": pw_hash,
+            "cards": [],
+            "created_at": datetime.utcnow()
+        }
+        mongo.db.users.insert_one(doc)
+        flash("회원가입 완료! 로그인을 해주세요.")
+        return redirect(url_for("auth.login"))
+    return render_template("auth/register.html")
+
+@auth_bp.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("index"))
+blueprints/auth/forms.py
+python
+복사
+편집
+# WTForms 사용 시 필요한 폼 정의(선택적)
+blueprints/products/__init__.py
+python
+복사
+편집
+from flask import Blueprint
+products_bp = Blueprint("products", __name__, template_folder="templates")
+from . import routes  # noqa
+blueprints/products/routes.py
+python
+복사
+편집
+from flask import render_template, request, jsonify
+from flask_login import login_required, current_user
+from bson import ObjectId
+from datetime import datetime
+from db import mongo
+from utils.crawler import fetch_html, parse_price
+from utils.ocr_processor import ocr_from_image_url, extract_discount_info
+from utils.discount_engine import compute_final_price
+from . import products_bp
+
+@products_bp.route("/search", methods=["GET"])
+@login_required
+def search_form():
+    return render_template("products/search.html")
+
+@products_bp.route("/search", methods=["POST"])
+@login_required
+def search_action():
+    url = request.form["product_url"].strip()
+    html = fetch_html(url)
+    price_info = parse_price(html)
+
+    # OCR 예시 (이미지 URL을 크롤링해서 가져왔다고 가정)
+    ocr_text = ""
+    discount_data = {}
+    if "image_url" in price_info:
+        ocr_text = ocr_from_image_url(price_info["image_url"])
+        discount_data = extract_discount_info(ocr_text)
+
+    # 사용자 카드 배열
+    user_doc = mongo.db.users.find_one({"_id": ObjectId(current_user.id)})
+    final = compute_final_price(
+        price_info.get("sale_price") or price_info["listed_price"],
+        discount_data,
+        user_doc.get("cards", [])
+    )
+
+    # DB 저장/업서트
+    prod = mongo.db.products.find_one_and_update(
+        {"url": url},
+        {
+            "$setOnInsert": {
+                "name": request.form.get("product_name") or url,
+                "url": url,
+                "image_url": price_info.get("image_url"),
+                "created_at": datetime.utcnow()
+            },
+            "$push": {
+                "price_histories": {
+                    "scraped_price":  price_info.get("sale_price") or price_info["listed_price"],
+                    "ocr_price":      discount_data.get("ocr_price"),
+                    "computed_price": final["final_price"],
+                    "currency": "KRW",
+                    "created_at": datetime.utcnow()
+                }
+            }
+        },
+        upsert=True,
+        return_document=True
+    )
+
+    return render_template("products/result.html",
+                           product=prod,
+                           price=final)
+blueprints/products/forms.py
+python
+복사
+편집
+# 필요 시 WTForms 정의
+blueprints/dashboard/__init__.py
+python
+복사
+편집
+from flask import Blueprint
+dashboard_bp = Blueprint("dashboard", __name__, template_folder="templates")
+from . import routes  # noqa
+blueprints/dashboard/routes.py
+python
+복사
+편집
+from flask import render_template
+from flask_login import login_required, current_user
+from bson.objectid import ObjectId
+from db import mongo
+from . import dashboard_bp
+
+@dashboard_bp.route("/")
+@login_required
+def home():
+    user_doc = mongo.db.users.find_one({"_id": ObjectId(current_user.id)})
+    recent = mongo.db.products.find().sort("created_at", -1).limit(5)
+    return render_template("dashboard/history.html",
+                           user=user_doc,
+                           recent=list(recent))
+blueprints/notifications/__init__.py
+python
+복사
+편집
+from flask import Blueprint
+notifications_bp = Blueprint("notifications", __name__, template_folder="templates")
+from . import routes  # noqa
+blueprints/notifications/routes.py
+python
+복사
+편집
+from flask import render_template, request, redirect, url_for
+from flask_login import login_required, current_user
+from bson.objectid import ObjectId
+from db import mongo
+from datetime import datetime
+from . import notifications_bp
+
+@notifications_bp.route("/settings", methods=["GET", "POST"])
+@login_required
+def settings():
+    if request.method == "POST":
+        product_id   = ObjectId(request.form["product_id"])
+        target_price = int(request.form["target_price"])
+        mongo.db.notifications.insert_one({
+            "user_id": ObjectId(current_user.id),
+            "product_id": product_id,
+            "target_price": target_price,
+            "is_active": True,
+            "created_at": datetime.utcnow()
+        })
+        return redirect(url_for("notifications.settings"))
+
+    notis = mongo.db.notifications.find({"user_id": ObjectId(current_user.id)})
+    products = {p["_id"]: p for p in mongo.db.products.find()}
+    return render_template("notifications/settings.html",
+                           notis=list(notis),
+                           products=products)
+4. utils
+utils/crawler.py
+python
+복사
+편집
+import requests
+from bs4 import BeautifulSoup
+
+def fetch_html(url: str) -> str:
+    headers = {"User-Agent": "Mozilla/5.0"}
+    resp = requests.get(url, headers=headers, timeout=10)
+    resp.raise_for_status()
+    return resp.text
+
+def parse_price(html: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    price = {}
+    tag = soup.select_one(".price_original__1yV_U") or soup.select_one(".price_ins__1mq5M")
+    if tag:
+        price["listed_price"] = int(tag.get_text().replace(",", "").replace("원", ""))
+    sale = soup.select_one(".price_sale__1t_qE")
+    if sale:
+        price["sale_price"] = int(sale.get_text().replace(",", "").replace("원", ""))
+    return price
+utils/ocr_processor.py
+python
+복사
+편집
+import io, requests, re
+from PIL import Image
+import pytesseract
+
+def ocr_from_image_url(image_url: str) -> str:
+    resp = requests.get(image_url, stream=True)
+    resp.raise_for_status()
+    img = Image.open(io.BytesIO(resp.content))
+    return pytesseract.image_to_string(img, lang="kor+eng")
+
+def extract_discount_info(text: str) -> dict:
+    info = {}
+    if m := re.search(r"(\d+)%", text):
+        info["card_discount"] = float(m.group(1))
+    if m := re.search(r"(\d+)\s*원", text):
+        info["coupon_value"] = int(m.group(1))
+    return info
+utils/discount_engine.py
+python
+복사
+편집
+def compute_final_price(scraped_price: int, ocr_info: dict, user_cards: list) -> dict:
+    best = None
+    best_amt = 0
+    for card in user_cards:
+        amt = int(scraped_price * card.get("discount_rate", 0) / 100)
+        if amt > best_amt:
+            best_amt = amt
+            best = card
+    coupon = ocr_info.get("coupon_value", 0)
+    final_price = max(scraped_price - best_amt - coupon, 0)
+    return {
+        "base_price": scraped_price,
+        "best_discount_card": best or {},
+        "coupon_value": coupon,
+        "final_price": final_price
+    }
+utils/email_notifier.py
+python
+복사
+편집
+from flask_mail import Message
+from db import mongo
+from bson.objectid import ObjectId
+from datetime import datetime
+from flask import current_app
+
+def send_price_alert(user_doc, product_doc, noti_doc, mail):
+    msg = Message(
+        subject=f"[CominG] '{product_doc['name']}' 가격 알림",
+        recipients=[user_doc["email"]]
+    )
+    latest = product_doc["price_histories"][-1]["computed_price"]
+    msg.body = (
+        f"{user_doc['username']}님,\n"
+        f"'{product_doc['name']}' 가격이 목표가({noti_doc['target_price']}원)이하 "
+        f"{latest}원으로 떨어졌습니다.\n\n"
+        f"상품 페이지: {product_doc['url']}"
+    )
+    mail.send(msg)
+
+def daily_check(mail):
+    notis = mongo.db.notifications.find({"is_active": True})
+    for n in notis:
+        user = mongo.db.users.find_one({"_id": n["user_id"]})
+        product = mongo.db.products.find_one({"_id": n["product_id"]})
+        latest_price = product["price_histories"][-1]["computed_price"]
+        if latest_price <= n["target_price"]:
+            send_price_alert(user, product, n, mail)
+            mongo.db.notifications.update_one({"_id": n["_id"]},
+                                              {"$set":{"is_active": False,
+                                                       "triggered_at": datetime.utcnow()}})
+5. static & templates (필수 최소 구성)
+static/css/styles.css
+css
+복사
+편집
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.navbar { margin-bottom: 20px; }
+static/js/main.js
+js
+복사
+편집
+// 필요하면 JS 코드 작성
+templates/base.html
+html
+복사
+편집
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}CominG{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3">
+  <a class="navbar-brand" href="{{ url_for('index') }}">CominG</a>
+  <ul class="navbar-nav ms-auto">
+    {% if current_user.is_authenticated %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard.home') }}">대시보드</a></li>
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">로그아웃</a></li>
+    {% else %}
+      <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">로그인</a></li>
+    {% endif %}
+  </ul>
+</nav>
+<div class="container">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert alert-info mt-2">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+templates/index.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}CominG – 홈{% endblock %}
+{% block content %}
+<div class="p-4 text-center">
+  <h1>CominG 가격 비교 서비스</h1>
+  <p class="lead">실구매가를 한눈에 확인하고, 할인까지 원클릭으로!</p>
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">상품 검색하기</a>
+  {% else %}
+    <a href="{{ url_for('auth.register') }}" class="btn btn-success">회원가입</a>
+  {% endif %}
+</div>
+{% endblock %}
+templates/auth/login.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}로그인{% endblock %}
+{% block content %}
+<h2>로그인</h2>
+<form method="post">
+  <div class="mb-3"><label>Email <input name="email" type="email" class="form-control" required></label></div>
+  <div class="mb-3"><label>Password <input name="password" type="password" class="form-control" required></label></div>
+  <button class="btn btn-primary">로그인</button>
+</form>
+{% endblock %}
+templates/auth/register.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}회원가입{% endblock %}
+{% block content %}
+<h2>회원가입</h2>
+<form method="post">
+  <div class="mb-3"><label>Username <input name="username" class="form-control" required></label></div>
+  <div class="mb-3"><label>Email <input name="email" type="email" class="form-control" required></label></div>
+  <div class="mb-3"><label>Password <input name="password" type="password" class="form-control" required></label></div>
+  <button class="btn btn-success">가입하기</button>
+</form>
+{% endblock %}
+templates/products/search.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}상품 검색{% endblock %}
+{% block content %}
+<h2>상품 URL로 검색</h2>
+<form method="post">
+  <div class="mb-3"><label>상품 URL <input name="product_url" class="form-control" required></label></div>
+  <button class="btn btn-primary">검색</button>
+</form>
+{% endblock %}
+templates/products/result.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}검색 결과{% endblock %}
+{% block content %}
+<h2>{{ product.name }}</h2>
+<table class="table">
+  <tr><th>원가</th><td>{{ price.base_price|int|comma }}원</td></tr>
+  <tr><th>쿠폰 할인</th><td>{{ price.coupon_value|default(0)|int|comma }}원</td></tr>
+  <tr><th>카드 할인</th>
+      <td>
+        {% if price.best_discount_card %}
+          {{ price.best_discount_card.card_name }} ({{ price.best_discount_card.card_discount }}%) →
+          {{ price.best_discount_card.discount_amount|int|comma }}원
+        {% else %}없음{% endif %}
+      </td></tr>
+  <tr class="table-primary"><th>실구매가</th><td><strong>{{ price.final_price|int|comma }}원</strong></td></tr>
+</table>
+<a href="{{ product.url }}" class="btn btn-outline-primary" target="_blank">상품 페이지로 이동</a>
+{% endblock %}
+templates/dashboard/history.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}대시보드{% endblock %}
+{% block content %}
+<h2>최근 조회 상품</h2>
+<table class="table table-striped">
+  <tr><th>상품명</th><th>마지막 조회가</th><th>링크</th></tr>
+  {% for p in recent %}
+  <tr>
+    <td>{{ p.name }}</td>
+    <td>{{ p.price_histories[-1].computed_price|int|comma }}원</td>
+    <td><a href="{{ p.url }}" target="_blank">보기</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
+templates/notifications/settings.html
+html
+복사
+편집
+{% extends "base.html" %}
+{% block title %}가격 알림 설정{% endblock %}
+{% block content %}
+<h2>알림 설정</h2>
+<form method="post" class="mb-4">
+  <div class="row g-2">
+    <div class="col">
+      <select name="product_id" class="form-select" required>
+        {% for pid, prod in products.items() %}
+          <option value="{{ pid }}">{{ prod.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col">
+      <input name="target_price" type="number" class="form-control" placeholder="목표가(원)" required>
+    </div>
+    <div class="col-auto">
+      <button class="btn btn-primary">추가</button>
+    </div>
+  </div>
+</form>
+
+<h3>내 알림</h3>
+<table class="table">
+  <tr><th>상품</th><th>목표가</th><th>상태</th></tr>
+  {% for n in notis %}
+  <tr>
+    <td>{{ products[n.product_id].name }}</td>
+    <td>{{ n.target_price|int|comma }}원</td>
+    <td>{{ "활성" if n.is_active else "비활성" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
+6. 마무리
+Replit에 폴더 구조·파일을 동일하게 생성
+
+.env → MONGODB_URI, SECRET_KEY 등 실제 값 입력
+
+Shell
+
+bash
+복사
+편집
+pip install -r requirements.txt
+python app.py
+브라우저 미리보기(3000포트)에서 로그인 → 상품 검색 등 확인!
