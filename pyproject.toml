@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
-    "bson>=0.5.10",
     "email-validator>=2.2.0",
     "flask-login>=0.6.3",
     "flask>=3.1.1",
@@ -17,7 +16,8 @@ dependencies = [
     "pillow>=11.2.1",
     "selenium>=4.33.0",
     "python-dotenv>=1.1.0",
-    "flask-pymongo>=3.0.1",
     "beautifulsoup4>=4.13.4",
     "pytesseract>=0.3.13",
+    "pymongo==4.6.0",
+    "flask-pymongo>=3.0.1",
 ]
