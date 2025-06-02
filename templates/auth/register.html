@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}회원가입 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h3 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>회원가입
+                    </h3>
+                    <p class="text-muted mt-2">ComImg에서 똑똑한 쇼핑을 시작하세요</p>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="register-form">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">사용자명</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="username" 
+                                       name="username" 
+                                       placeholder="사용자명을 입력하세요"
+                                       required>
+                            </div>
+                            <div class="form-text">2-20자의 영문, 숫자, 한글만 사용 가능합니다.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">이메일</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <input type="email" 
+                                       class="form-control" 
+                                       id="email" 
+                                       name="email" 
+                                       placeholder="이메일을 입력하세요"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">비밀번호</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="password" 
+                                       name="password" 
+                                       placeholder="비밀번호를 입력하세요"
+                                       required>
+                            </div>
+                            <div class="form-text">최소 6자 이상 입력해주세요.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">비밀번호 확인</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="confirm_password" 
+                                       name="confirm_password" 
+                                       placeholder="비밀번호를 다시 입력하세요"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="agree_terms" required>
+                            <label class="form-check-label" for="agree_terms">
+                                <a href="#" class="text-decoration-none">이용약관</a> 및 
+                                <a href="#" class="text-decoration-none">개인정보처리방침</a>에 동의합니다.
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-user-plus me-2"></i>회원가입
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <p class="mb-0">
+                        이미 계정이 있으신가요? 
+                        <a href="{{ url_for('auth.login') }}" class="text-decoration-none">
+                            로그인하기
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('register-form');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm_password');
+    
+    // Real-time password matching validation
+    confirmPassword.addEventListener('input', function() {
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity('비밀번호가 일치하지 않습니다.');
+            confirmPassword.classList.add('is-invalid');
+        } else {
+            confirmPassword.setCustomValidity('');
+            confirmPassword.classList.remove('is-invalid');
+            confirmPassword.classList.add('is-valid');
+        }
+    });
+    
+    // Form validation
+    form.addEventListener('submit', function(e) {
+        const username = document.getElementById('username').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const passwordValue = password.value;
+        const confirmPasswordValue = confirmPassword.value;
+        const agreeTerms = document.getElementById('agree_terms').checked;
+        
+        // Username validation
+        if (username.length < 2 || username.length > 20) {
+            e.preventDefault();
+            ComImg.showAlert('사용자명은 2-20자 사이로 입력해주세요.', 'error');
+            return;
+        }
+        
+        // Email validation
+        if (!ComImg.isValidEmail(email)) {
+            e.preventDefault();
+            ComImg.showAlert('올바른 이메일 형식을 입력해주세요.', 'error');
+            return;
+        }
+        
+        // Password validation
+        if (passwordValue.length < 6) {
+            e.preventDefault();
+            ComImg.showAlert('비밀번호는 최소 6자 이상이어야 합니다.', 'error');
+            return;
+        }
+        
+        // Password confirmation
+        if (passwordValue !== confirmPasswordValue) {
+            e.preventDefault();
+            ComImg.showAlert('비밀번호가 일치하지 않습니다.', 'error');
+            return;
+        }
+        
+        // Terms agreement
+        if (!agreeTerms) {
+            e.preventDefault();
+            ComImg.showAlert('이용약관에 동의해주세요.', 'error');
+            return;
+        }
+        
+        // Show loading spinner
+        ComImg.showLoadingSpinner('회원가입 처리 중...');
+    });
+    
+    // Focus on username field
+    document.getElementById('username').focus();
+});
+</script>
+{% endblock %}

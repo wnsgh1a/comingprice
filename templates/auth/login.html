@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}로그인 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h3 class="mb-0">
+                        <i class="fas fa-sign-in-alt me-2"></i>로그인
+                    </h3>
+                    <p class="text-muted mt-2">ComImg 계정으로 로그인하세요</p>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="email" class="form-label">이메일</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <input type="email" 
+                                       class="form-control" 
+                                       id="email" 
+                                       name="email" 
+                                       placeholder="이메일을 입력하세요"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">비밀번호</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="password" 
+                                       name="password" 
+                                       placeholder="비밀번호를 입력하세요"
+                                       required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                            <label class="form-check-label" for="remember_me">
+                                로그인 상태 유지
+                            </label>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-2"></i>로그인
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <p class="mb-0">
+                        계정이 없으신가요? 
+                        <a href="{{ url_for('auth.register') }}" class="text-decoration-none">
+                            회원가입하기
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Focus on email field
+    document.getElementById('email').focus();
+    
+    // Add form validation feedback
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        
+        if (!email || !password) {
+            e.preventDefault();
+            ComImg.showAlert('이메일과 비밀번호를 모두 입력해주세요.', 'error');
+            return;
+        }
+        
+        if (!ComImg.isValidEmail(email)) {
+            e.preventDefault();
+            ComImg.showAlert('올바른 이메일 형식을 입력해주세요.', 'error');
+            return;
+        }
+        
+        // Show loading spinner
+        ComImg.showLoadingSpinner('로그인 중...');
+    });
+});
+
+// Email validation helper
+ComImg.isValidEmail = function(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+</script>
+{% endblock %}

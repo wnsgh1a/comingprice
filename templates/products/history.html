@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}검색 기록 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-history me-2"></i>검색 기록
+        </h2>
+        <div>
+            <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>새 검색
+            </a>
+            <a href="{{ url_for('products.compare_products') }}" class="btn btn-outline-primary">
+                <i class="fas fa-balance-scale me-1"></i>상품 비교
+            </a>
+        </div>
+    </div>
+
+    {% if searches %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" 
+                       class="form-control" 
+                       id="search-filter" 
+                       placeholder="검색 기록 필터링...">
+            </div>
+        </div>
+        <div class="col-md-6">
+            <button class="btn btn-outline-secondary" id="refresh-prices-btn">
+                <i class="fas fa-sync-alt me-1"></i>가격 업데이트
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        {% for search in searches %}
+        {% set product = products.get(search.product_id|string, {}) %}
+        <div class="col-lg-6 mb-4 search-history-item">
+            <div class="card product-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title mb-0">
+                            {{ product.get('name', 'Unknown Product')[:50] }}
+                            {% if product.get('name', '')|length > 50 %}...{% endif %}
+                        </h5>
+                        <small class="text-muted">
+                            {{ search.created_at.strftime('%m/%d %H:%M') }}
+                        </small>
+                    </div>
+                    
+                    {% if product.get('image_url') %}
+                    <div class="mb-3">
+                        <img src="{{ product.image_url }}" 
+                             class="img-fluid rounded" 
+                             style="max-height: 150px; width: 100%; object-fit: cover;"
+                             alt="상품 이미지">
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <small class="text-muted">검색 시 가격</small>
+                            <div class="h5 text-primary">
+                                {{ "{:,}".format(search.result_price) }}원
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">카테고리</small>
+                            <div>{{ product.get('category', '기타') }}</div>
+                        </div>
+                    </div>
+                    
+                    {% if product.get('price_histories') %}
+                    {% set latest_price = product.price_histories[-1] %}
+                    {% if latest_price.computed_price != search.result_price %}
+                    <div class="alert alert-sm {% if latest_price.computed_price < search.result_price %}alert-success{% else %}alert-warning{% endif %} py-2">
+                        <small>
+                            {% if latest_price.computed_price < search.result_price %}
+                                <i class="fas fa-arrow-down me-1"></i>
+                                {{ "{:,}".format(search.result_price - latest_price.computed_price) }}원 더 저렴해짐
+                            {% else %}
+                                <i class="fas fa-arrow-up me-1"></i>
+                                {{ "{:,}".format(latest_price.computed_price - search.result_price) }}원 비싸짐
+                            {% endif %}
+                        </small>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{{ product.get('url', '#') }}" 
+                           target="_blank" 
+                           class="btn btn-primary btn-sm flex-fill">
+                            <i class="fas fa-external-link-alt me-1"></i>상품 보기
+                        </a>
+                        <button class="btn btn-outline-secondary btn-sm copy-url-btn" 
+                                data-url="{{ product.get('url', '') }}">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#alertModal{{ loop.index }}">
+                            <i class="fas fa-bell"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Price Alert Modal for this product -->
+        <div class="modal fade" id="alertModal{{ loop.index }}" tabindex="-1">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title">가격 알림 설정</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('notifications.settings') }}">
+                        <div class="modal-body">
+                            <input type="hidden" name="action" value="add_alert">
+                            <input type="hidden" name="product_id" value="{{ product._id }}">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">목표 가격</label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           name="target_price" 
+                                           value="{{ search.result_price - 5000 if search.result_price > 5000 else search.result_price }}"
+                                           min="1000" 
+                                           required>
+                                    <span class="input-group-text">원</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+                            <button type="submit" class="btn btn-primary btn-sm">설정</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if searches|length >= 20 %}
+    <nav aria-label="검색 기록 페이지네이션">
+        <ul class="pagination justify-content-center">
+            <li class="page-item disabled">
+                <span class="page-link">이전</span>
+            </li>
+            <li class="page-item active">
+                <span class="page-link">1</span>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="#">다음</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="fas fa-search"></i>
+        </div>
+        <div class="empty-state-title">검색 기록이 없습니다</div>
+        <div class="empty-state-text">첫 번째 상품을 검색해보세요!</div>
+        <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+            <i class="fas fa-search me-2"></i>상품 검색하기
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Search filter functionality is already implemented in main.js
+    
+    // Add animation to product cards
+    const cards = document.querySelectorAll('.product-card');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('fade-in');
+    });
+});
+</script>
+{% endblock %}

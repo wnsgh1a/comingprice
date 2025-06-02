@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}분석 결과 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Result Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-chart-line me-2"></i>가격 분석 결과
+        </h2>
+        <div>
+            <a href="{{ url_for('products.search_form') }}" class="btn btn-outline-primary">
+                <i class="fas fa-plus me-1"></i>새 검색
+            </a>
+            <button class="btn btn-outline-secondary copy-url-btn" data-url="{{ product.url }}">
+                <i class="fas fa-copy me-1"></i>URL 복사
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Product Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-box me-2"></i>상품 정보
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if product.image_url %}
+                        <div class="col-md-3">
+                            <img src="{{ product.image_url }}" 
+                                 class="img-fluid rounded" 
+                                 alt="상품 이미지"
+                                 style="max-height: 200px; object-fit: cover;">
+                        </div>
+                        {% endif %}
+                        <div class="col-md-{{ '9' if product.image_url else '12' }}">
+                            <h5>{{ product.name }}</h5>
+                            
+                            <div class="row mt-3">
+                                <div class="col-sm-3">
+                                    <strong>카테고리:</strong>
+                                </div>
+                                <div class="col-sm-9">
+                                    {{ product.category or '기타' }}
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-2">
+                                <div class="col-sm-3">
+                                    <strong>상품 URL:</strong>
+                                </div>
+                                <div class="col-sm-9">
+                                    <a href="{{ product.url }}" target="_blank" class="text-decoration-none">
+                                        상품 페이지 보기 <i class="fas fa-external-link-alt ms-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-2">
+                                <div class="col-sm-3">
+                                    <strong>분석 시간:</strong>
+                                </div>
+                                <div class="col-sm-9">
+                                    {{ product.updated_at.strftime('%Y년 %m월 %d일 %H:%M') if product.updated_at }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Analysis -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>가격 분석
+                    </h4>
+                    <button class="btn btn-sm btn-outline-primary" id="discount-breakdown-toggle">
+                        할인 내역 보기
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-4">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h6 class="text-muted">정가</h6>
+                                <div class="price-display text-muted price-original">
+                                    {{ "{:,}".format(price_info.listed_price) }}원
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if price_info.get('sale_price') and price_info.sale_price < price_info.listed_price %}
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h6 class="text-muted">할인가</h6>
+                                <div class="price-display text-warning">
+                                    {{ "{:,}".format(price_info.sale_price) }}원
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="col-md-4">
+                            <div class="border border-success rounded p-3 bg-light">
+                                <h6 class="text-success">최종 결제가</h6>
+                                <div class="price-display text-success">
+                                    {{ "{:,}".format(final_result.final_price) }}원
+                                </div>
+                                {% if final_result.total_discount > 0 %}
+                                <small class="text-success">
+                                    <i class="fas fa-arrow-down me-1"></i>
+                                    {{ "{:,}".format(final_result.total_discount) }}원 절약
+                                </small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Discount Breakdown -->
+                    <div id="discount-breakdown" class="d-none">
+                        <h6 class="mb-3">할인 내역</h6>
+                        <div class="discount-breakdown">
+                            {% if final_result.discount_breakdown %}
+                                {% for discount in final_result.discount_breakdown %}
+                                <div class="discount-item">
+                                    <span>
+                                        {% if discount.type == 'percentage_discount' %}
+                                            <i class="fas fa-percent text-primary me-2"></i>
+                                        {% elif discount.type == 'coupon_discount' %}
+                                            <i class="fas fa-ticket-alt text-success me-2"></i>
+                                        {% elif discount.type == 'card_discount' %}
+                                            <i class="fas fa-credit-card text-warning me-2"></i>
+                                        {% elif discount.type == 'cashback' %}
+                                            <i class="fas fa-coins text-info me-2"></i>
+                                        {% endif %}
+                                        {{ discount.description }}
+                                    </span>
+                                    <span class="text-success">
+                                        -{{ "{:,}".format(discount.amount) }}원
+                                    </span>
+                                </div>
+                                {% endfor %}
+                                
+                                <div class="discount-item">
+                                    <span><strong>총 할인 금액</strong></span>
+                                    <span><strong>-{{ "{:,}".format(final_result.total_discount) }}원</strong></span>
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center">적용 가능한 할인이 없습니다.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Payment Recommendation -->
+                    {% if final_result.recommended_payment %}
+                    <div class="alert alert-info mt-3">
+                        <h6><i class="fas fa-lightbulb me-2"></i>결제 추천</h6>
+                        <p class="mb-0">{{ final_result.recommended_payment }}</p>
+                    </div>
+                    {% endif %}
+
+                    <!-- Best Card -->
+                    {% if final_result.best_card %}
+                    <div class="alert alert-success mt-3">
+                        <h6><i class="fas fa-crown me-2"></i>최적 카드</h6>
+                        <p class="mb-0">
+                            <strong>{{ final_result.best_card.name }}</strong> 
+                            ({{ final_result.best_card.discount_rate }}% 할인)를 사용하시면 가장 유리합니다.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- OCR Analysis -->
+            {% if ocr_text %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye me-2"></i>OCR 할인 정보 분석
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if discount_data %}
+                    <div class="row mb-3">
+                        {% if discount_data.get('card_discount') %}
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 text-center">
+                                <h6>카드 할인</h6>
+                                <div class="h4 text-primary">{{ discount_data.card_discount }}%</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if discount_data.get('coupon_value') %}
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 text-center">
+                                <h6>쿠폰 할인</h6>
+                                <div class="h4 text-success">{{ "{:,}".format(discount_data.coupon_value) }}원</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <details class="mb-0">
+                        <summary class="btn btn-outline-secondary btn-sm">OCR 인식 텍스트 보기</summary>
+                        <div class="ocr-text mt-3">{{ ocr_text }}</div>
+                    </details>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>빠른 작업
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ product.url }}" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-shopping-cart me-2"></i>구매하러 가기
+                        </a>
+                        
+                        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#notificationModal">
+                            <i class="fas fa-bell me-2"></i>가격 알림 설정
+                        </button>
+                        
+                        <a href="{{ url_for('products.compare_products') }}" class="btn btn-outline-info">
+                            <i class="fas fa-balance-scale me-2"></i>다른 상품과 비교
+                        </a>
+                        
+                        <a href="{{ url_for('products.search_history') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-history me-2"></i>검색 기록 보기
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price History -->
+            {% if product.price_histories and product.price_histories|length > 1 %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>가격 변동
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="price-history-chart" width="400" height="200"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Tips -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tips me-2"></i>절약 팁
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            여러 카드의 혜택을 비교해보세요
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            가격 알림을 설정하여 더 저렴해질 때를 놓치지 마세요
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            쿠폰과 적립금을 함께 활용하세요
+                        </li>
+                        <li class="mb-0">
+                            <i class="fas fa-check text-success me-2"></i>
+                            정기적으로 가격을 체크해보세요
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Price Alert Modal -->
+<div class="modal fade" id="notificationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-bell me-2"></i>가격 알림 설정
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('notifications.settings') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="add_alert">
+                    <input type="hidden" name="product_id" value="{{ product._id }}">
+                    
+                    <div class="mb-3">
+                        <label for="target_price" class="form-label">목표 가격</label>
+                        <div class="input-group">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="target_price" 
+                                   name="target_price" 
+                                   value="{{ final_result.final_price - 10000 if final_result.final_price > 10000 else final_result.final_price }}"
+                                   min="1000" 
+                                   required>
+                            <span class="input-group-text">원</span>
+                        </div>
+                        <div class="form-text">
+                            현재 최저가: {{ "{:,}".format(final_result.final_price) }}원
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            설정한 가격 이하로 내려가면 이메일로 알림을 보내드립니다.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">알림 설정</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize price history chart if data exists
+    const chartCanvas = document.getElementById('price-history-chart');
+    if (chartCanvas && typeof Chart !== 'undefined') {
+        const ctx = chartCanvas.getContext('2d');
+        
+        // Sample data - in real app, this would come from server
+        const priceData = {
+            labels: [{% if product.price_histories %}'{{ product.price_histories[0].created_at.strftime("%m/%d") }}'{% endif %}],
+            datasets: [{
+                label: '가격 (원)',
+                data: [{% if product.price_histories %}{{ product.price_histories[0].computed_price }}{% endif %}],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1,
+                fill: true
+            }]
+        };
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: priceData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toLocaleString() + '원';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

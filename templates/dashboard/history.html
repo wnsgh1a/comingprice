@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Dashboard Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">
+                <i class="fas fa-tachometer-alt me-2"></i>대시보드
+            </h2>
+            <p class="text-muted mb-0">
+                안녕하세요, {{ user.username }}님! 오늘도 현명한 쇼핑 되세요.
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+                <i class="fas fa-search me-1"></i>상품 검색
+            </a>
+            <a href="{{ url_for('dashboard.analytics') }}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-pie me-1"></i>상세 분석
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-5">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ stats.total_searches }}</div>
+                <div class="stats-label">
+                    <i class="fas fa-search me-1"></i>총 검색 횟수
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card bg-success">
+                <div class="stats-number">{{ "{:,}".format(stats.total_savings) }}원</div>
+                <div class="stats-label">
+                    <i class="fas fa-piggy-bank me-1"></i>총 절약 금액
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card bg-warning">
+                <div class="stats-number">{{ stats.active_notifications }}</div>
+                <div class="stats-label">
+                    <i class="fas fa-bell me-1"></i>활성 알림
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="stats-card bg-info">
+                <div class="stats-number">{{ stats.registered_cards }}</div>
+                <div class="stats-label">
+                    <i class="fas fa-credit-card me-1"></i>등록된 카드
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Recent Searches -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>최근 검색
+                    </h5>
+                    <a href="{{ url_for('products.search_history') }}" class="btn btn-outline-primary btn-sm">
+                        전체 보기
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_searches %}
+                    <div class="timeline">
+                        {% for search in recent_searches %}
+                        {% set product = products.get(search.product_id|string, {}) %}
+                        <div class="timeline-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">
+                                        {{ product.get('name', 'Unknown Product')[:50] }}
+                                        {% if product.get('name', '')|length > 50 %}...{% endif %}
+                                    </h6>
+                                    <p class="mb-1 text-muted small">
+                                        <i class="fas fa-tag me-1"></i>{{ product.get('category', '기타') }}
+                                        <span class="ms-3">
+                                            <i class="fas fa-won-sign me-1"></i>{{ "{:,}".format(search.result_price) }}원
+                                        </span>
+                                    </p>
+                                    <small class="text-muted">
+                                        {{ search.created_at.strftime('%m월 %d일 %H:%M') }}
+                                    </small>
+                                </div>
+                                <div class="ms-3">
+                                    <a href="{{ product.get('url', '#') }}" 
+                                       target="_blank" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3 opacity-50"></i>
+                        <p>아직 검색 기록이 없습니다.</p>
+                        <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>첫 번째 상품 검색하기
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Info -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>빠른 작업
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>상품 검색
+                        </a>
+                        <a href="{{ url_for('products.compare_products') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-balance-scale me-2"></i>상품 비교
+                        </a>
+                        <a href="{{ url_for('notifications.settings') }}" class="btn btn-outline-success">
+                            <i class="fas fa-bell me-2"></i>알림 설정
+                        </a>
+                        <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-user-cog me-2"></i>프로필 관리
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Cards -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-credit-card me-2"></i>내 카드
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if user.cards %}
+                    <div class="mb-3">
+                        {% for card in user.cards %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small">{{ card.name[:20] }}</span>
+                            <span class="badge bg-primary">{{ card.discount_rate }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-edit me-1"></i>카드 관리
+                    </a>
+                    {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-credit-card fa-2x mb-3 opacity-50"></i>
+                        <p class="small">카드를 등록하여<br>더 정확한 할인 혜택을 받아보세요!</p>
+                        <a href="{{ url_for('auth.profile') }}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus me-1"></i>카드 등록
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>오늘의 팁
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-0">
+                        <small>
+                            <strong>💡 알고 계셨나요?</strong><br>
+                            가격 알림을 설정하면 원하는 가격에 도달했을 때 
+                            이메일로 알림을 받을 수 있습니다!
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Insights -->
+    {% if stats.total_searches > 0 %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>절약 성과
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h6 class="text-muted">평균 검색당 절약</h6>
+                                <div class="h4 text-success">
+                                    {{ "{:,}".format((stats.total_savings / stats.total_searches)|int if stats.total_searches > 0 else 0) }}원
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h6 class="text-muted">절약률</h6>
+                                <div class="h4 text-primary">
+                                    {% if stats.total_searches > 0 %}
+                                        {{ "%.1f"|format((stats.total_savings / (stats.total_searches * 50000)) * 100) }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h6 class="text-muted">이번 달 절약</h6>
+                                <div class="h4 text-warning">{{ "{:,}".format(stats.total_savings) }}원</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if stats.total_savings > 10000 %}
+                    <div class="mt-3 text-center">
+                        <div class="alert alert-success">
+                            <i class="fas fa-trophy me-2"></i>
+                            <strong>축하합니다!</strong> 
+                            지금까지 {{ "{:,}".format(stats.total_savings) }}원을 절약하셨습니다! 🎉
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate stats cards
+    const statsCards = document.querySelectorAll('.stats-card');
+    statsCards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('fade-in');
+        
+        // Add hover effect
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-3px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+    
+    // Timeline animation
+    const timelineItems = document.querySelectorAll('.timeline-item');
+    timelineItems.forEach((item, index) => {
+        item.style.animationDelay = `${index * 0.1}s`;
+        item.classList.add('slide-in');
+    });
+});
+</script>
+{% endblock %}

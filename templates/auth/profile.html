@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}프로필 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-cog me-2"></i>프로필 관리
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- User Info -->
+                    <div class="row mb-4">
+                        <div class="col-sm-3">
+                            <strong>사용자명:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.username }}
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-sm-3">
+                            <strong>이메일:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.email }}
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-sm-3">
+                            <strong>가입일:</strong>
+                        </div>
+                        <div class="col-sm-9">
+                            {{ user.created_at.strftime('%Y년 %m월 %d일') if user.created_at else 'N/A' }}
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Credit Cards Management -->
+                    <h5 class="mb-3">
+                        <i class="fas fa-credit-card me-2"></i>보유 신용카드
+                    </h5>
+                    
+                    <form method="POST" id="card-form">
+                        <div id="cards-container">
+                            {% if user.cards %}
+                                {% for card in user.cards %}
+                                <div class="row mb-3 card-row">
+                                    <div class="col-md-6">
+                                        <input type="text" 
+                                               class="form-control" 
+                                               name="card_name[]" 
+                                               value="{{ card.name }}"
+                                               placeholder="카드명 (예: 삼성카드 taptap O)" 
+                                               required>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" 
+                                               class="form-control" 
+                                               name="card_rate[]" 
+                                               value="{{ card.discount_rate }}"
+                                               placeholder="할인율 (%)" 
+                                               min="0" 
+                                               max="100" 
+                                               step="0.1" 
+                                               required>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-outline-danger remove-card-btn">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="row mb-3 card-row">
+                                    <div class="col-md-6">
+                                        <input type="text" 
+                                               class="form-control" 
+                                               name="card_name[]" 
+                                               placeholder="카드명 (예: 삼성카드 taptap O)">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="number" 
+                                               class="form-control" 
+                                               name="card_rate[]" 
+                                               placeholder="할인율 (%)" 
+                                               min="0" 
+                                               max="100" 
+                                               step="0.1">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-outline-danger remove-card-btn">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" id="add-card-btn" class="btn btn-outline-primary">
+                                <i class="fas fa-plus me-2"></i>카드 추가
+                            </button>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>팁:</strong> 카드별 할인율을 정확히 입력하면 더 정확한 가격 비교가 가능합니다.
+                            주요 카드사별 일반적인 할인율을 참고하여 입력해주세요.
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>저장
+                            </button>
+                            <a href="{{ url_for('dashboard.home') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>돌아가기
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>카드 활용 통계
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if user.cards %}
+                        <p class="mb-3">
+                            <strong>등록된 카드:</strong> {{ user.cards|length }}개
+                        </p>
+                        
+                        <div class="mb-3">
+                            <h6>등록된 카드 목록:</h6>
+                            <ul class="list-unstyled">
+                                {% for card in user.cards %}
+                                <li class="mb-2">
+                                    <span class="badge bg-primary">{{ card.name }}</span>
+                                    <small class="text-muted ms-2">{{ card.discount_rate }}%</small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted">
+                            <i class="fas fa-credit-card fa-3x mb-3 opacity-50"></i>
+                            <p>등록된 카드가 없습니다.</p>
+                            <p class="small">카드를 등록하여 최적의 할인 혜택을 받아보세요!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>카드 등록 가이드
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6>주요 카드사별 일반 할인율:</h6>
+                    <ul class="list-unstyled small">
+                        <li><strong>삼성카드:</strong> 0.5-2%</li>
+                        <li><strong>신한카드:</strong> 0.5-1.5%</li>
+                        <li><strong>현대카드:</strong> 0.5-2%</li>
+                        <li><strong>KB국민카드:</strong> 0.5-1.5%</li>
+                        <li><strong>하나카드:</strong> 0.5-1.5%</li>
+                    </ul>
+                    <p class="small text-muted mt-3">
+                        실제 할인율은 카드 상품과 가맹점에 따라 다를 수 있습니다. 
+                        정확한 정보는 해당 카드사에 문의해주세요.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add card functionality is already implemented in main.js
+    // Additional profile-specific functionality can be added here
+    
+    const form = document.getElementById('card-form');
+    form.addEventListener('submit', function(e) {
+        const cardNames = document.querySelectorAll('input[name="card_name[]"]');
+        const cardRates = document.querySelectorAll('input[name="card_rate[]"]');
+        
+        let hasValidCard = false;
+        for (let i = 0; i < cardNames.length; i++) {
+            if (cardNames[i].value.trim() && cardRates[i].value.trim()) {
+                hasValidCard = true;
+                break;
+            }
+        }
+        
+        if (!hasValidCard) {
+            e.preventDefault();
+            ComImg.showAlert('최소 하나의 카드 정보를 입력해주세요.', 'warning');
+            return;
+        }
+        
+        ComImg.showLoadingSpinner('카드 정보를 저장하는 중...');
+    });
+});
+</script>
+{% endblock %}

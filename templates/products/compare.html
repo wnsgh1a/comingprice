@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}상품 비교 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-balance-scale me-2"></i>상품 비교
+        </h2>
+        <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>새 상품 검색
+        </a>
+    </div>
+
+    {% if products %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        최근 검색한 상품들을 비교해보세요. 가격과 할인 혜택을 한눈에 확인할 수 있습니다.
+    </div>
+
+    <div class="row">
+        {% for product in products %}
+        {% set latest_price = product.price_histories[-1] if product.price_histories else {} %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card product-card h-100">
+                {% if product.image_url %}
+                <div class="position-relative">
+                    <img src="{{ product.image_url }}" 
+                         class="card-img-top" 
+                         style="height: 200px; object-fit: cover;"
+                         alt="상품 이미지">
+                    {% if latest_price.get('total_discount', 0) > 0 %}
+                    <span class="position-absolute top-0 end-0 m-2 discount-badge">
+                        {{ "{:,}".format(latest_price.total_discount) }}원 할인
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">
+                        {{ product.name[:60] }}
+                        {% if product.name|length > 60 %}...{% endif %}
+                    </h5>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-secondary">{{ product.category or '기타' }}</span>
+                        <small class="text-muted ms-2">
+                            {{ product.updated_at.strftime('%m/%d') if product.updated_at }}
+                        </small>
+                    </div>
+                    
+                    {% if latest_price %}
+                    <div class="mb-3">
+                        {% if latest_price.get('scraped_price') and latest_price.scraped_price != latest_price.get('computed_price', 0) %}
+                        <div class="price-original mb-1">
+                            {{ "{:,}".format(latest_price.scraped_price) }}원
+                        </div>
+                        {% endif %}
+                        
+                        <div class="price-display price-discounted">
+                            {{ "{:,}".format(latest_price.get('computed_price', 0)) }}원
+                        </div>
+                        
+                        {% if latest_price.get('best_card') %}
+                        <small class="text-muted d-block">
+                            <i class="fas fa-credit-card me-1"></i>
+                            {{ latest_price.best_card }} 카드 사용 시
+                        </small>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-auto">
+                        <div class="d-flex gap-2 mb-2">
+                            <a href="{{ product.url }}" 
+                               target="_blank" 
+                               class="btn btn-primary btn-sm flex-fill">
+                                <i class="fas fa-shopping-cart me-1"></i>구매
+                            </a>
+                            <button class="btn btn-outline-success btn-sm" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#alertModal{{ loop.index }}">
+                                <i class="fas fa-bell"></i>
+                            </button>
+                        </div>
+                        
+                        {% if latest_price.get('total_discount', 0) > 0 %}
+                        <div class="text-center">
+                            <small class="text-success">
+                                <i class="fas fa-piggy-bank me-1"></i>
+                                {{ "{:,}".format(latest_price.total_discount) }}원 절약 가능
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Price Alert Modal -->
+        <div class="modal fade" id="alertModal{{ loop.index }}" tabindex="-1">
+            <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h6 class="modal-title">가격 알림 설정</h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('notifications.settings') }}">
+                        <div class="modal-body">
+                            <input type="hidden" name="action" value="add_alert">
+                            <input type="hidden" name="product_id" value="{{ product._id }}">
+                            
+                            <div class="mb-3">
+                                <label class="form-label">목표 가격</label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           name="target_price" 
+                                           value="{{ (latest_price.get('computed_price', 0) * 0.9)|int if latest_price else 0 }}"
+                                           min="1000" 
+                                           required>
+                                    <span class="input-group-text">원</span>
+                                </div>
+                                <div class="form-text">
+                                    현재 가격: {{ "{:,}".format(latest_price.get('computed_price', 0)) }}원
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">취소</button>
+                            <button type="submit" class="btn btn-primary btn-sm">설정</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Comparison Summary -->
+    {% if products|length > 1 %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar me-2"></i>비교 요약
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        <h6 class="text-muted">최저가 상품</h6>
+                        {% set min_price = products|map(attribute='price_histories')|map('last')|map(attribute='computed_price')|min %}
+                        {% for product in products %}
+                            {% if product.price_histories and product.price_histories[-1].computed_price == min_price %}
+                                <div class="fw-bold text-success">{{ product.name[:30] }}</div>
+                                <div class="text-success">{{ "{:,}".format(min_price) }}원</div>
+                                {% break %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        <h6 class="text-muted">최대 할인 상품</h6>
+                        {% set max_discount = products|map(attribute='price_histories')|map('last')|map(attribute='total_discount')|max %}
+                        {% for product in products %}
+                            {% if product.price_histories and product.price_histories[-1].total_discount == max_discount %}
+                                <div class="fw-bold text-primary">{{ product.name[:30] }}</div>
+                                <div class="text-primary">{{ "{:,}".format(max_discount) }}원 할인</div>
+                                {% break %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        <h6 class="text-muted">평균 가격</h6>
+                        {% set avg_price = (products|map(attribute='price_histories')|map('last')|map(attribute='computed_price')|sum / products|length)|int %}
+                        <div class="fw-bold">{{ "{:,}".format(avg_price) }}원</div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="border rounded p-3">
+                        <h6 class="text-muted">총 절약 가능</h6>
+                        {% set total_savings = products|map(attribute='price_histories')|map('last')|map(attribute='total_discount')|sum %}
+                        <div class="fw-bold text-success">{{ "{:,}".format(total_savings) }}원</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <i class="fas fa-balance-scale"></i>
+        </div>
+        <div class="empty-state-title">비교할 상품이 없습니다</div>
+        <div class="empty-state-text">
+            여러 상품을 검색한 후 비교 기능을 사용해보세요!
+        </div>
+        <a href="{{ url_for('products.search_form') }}" class="btn btn-primary">
+            <i class="fas fa-search me-2"></i>상품 검색하기
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hover effects to comparison cards
+    const cards = document.querySelectorAll('.product-card');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('fade-in');
+        
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.3s ease';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+{% endblock %}

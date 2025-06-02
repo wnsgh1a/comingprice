@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}페이지를 찾을 수 없습니다 - ComImg{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="py-5">
+                <div class="mb-4">
+                    <i class="fas fa-search fa-5x text-muted opacity-50"></i>
+                </div>
+                
+                <h1 class="display-1 fw-bold text-muted">404</h1>
+                <h2 class="mb-3">페이지를 찾을 수 없습니다</h2>
+                <p class="lead mb-4">
+                    요청하신 페이지가 존재하지 않거나 이동되었을 수 있습니다.
+                </p>
+                
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>홈으로 돌아가기
+                    </a>
+                    {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('products.search_form') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-search me-2"></i>상품 검색
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="text-muted">
+                    <p class="mb-2">도움이 필요하시면:</p>
+                    <ul class="list-inline">
+                        {% if current_user.is_authenticated %}
+                        <li class="list-inline-item">
+                            <a href="{{ url_for('dashboard.home') }}" class="text-decoration-none">
+                                <i class="fas fa-tachometer-alt me-1"></i>대시보드
+                            </a>
+                        </li>
+                        <li class="list-inline-item">|</li>
+                        <li class="list-inline-item">
+                            <a href="{{ url_for('products.search_history') }}" class="text-decoration-none">
+                                <i class="fas fa-history me-1"></i>검색 기록
+                            </a>
+                        </li>
+                        <li class="list-inline-item">|</li>
+                        {% endif %}
+                        <li class="list-inline-item">
+                            <a href="mailto:support@comimg.com" class="text-decoration-none">
+                                <i class="fas fa-envelope me-1"></i>문의하기
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-focus on search if user came from a search-related page
+document.addEventListener('DOMContentLoaded', function() {
+    // Add some animation to the 404 icon
+    const icon = document.querySelector('.fa-search');
+    if (icon) {
+        icon.style.animation = 'pulse 2s infinite';
+    }
+});
+</script>
+{% endblock %}
